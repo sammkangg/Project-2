@@ -1,0 +1,321 @@
+---
+title: "Project 2 Question 2.7"
+author: "Samuel Kang"
+date: "03.01.19"
+output: html_notebook
+---
+  Penney (2016) explored whether the widespread publicity
+about NSA/PRISM surveillance (i.e., the Snowden revelations) in June 2013 was
+associated with a sharp and sudden decrease in traffic to Wikipedia articles
+on topics that raise privacy concerns. If so, this change in behavior would be
+consistent with a chilling effect resulting from mass surveillance. The approach
+of Penney (2016) is sometimes called an interrupted time series design, and it is
+related to the approaches described in section 2.4.3.
+
+  To choose the topic keywords, Penney referred to the list used by the US
+Department of Homeland Security for tracking and monitoring social media.
+The DHS list categorizes certain search terms into a range of issues, i.e.,
+“Health Concern,” “Infrastructure Security,” and “Terrorism.” For the study
+group, Penney used the 48 keywords related to “Terrorism” (see appendix
+table 8). He then aggregated Wikipedia article view counts on a monthly basis
+for the corresponding 48 Wikipedia articles over a 32-month period from
+the beginning of January 2012 to the end of August 2014. To strengthen his
+argument, he also created several comparison groups by tracking article views
+on other topics.
+
+  Now, you are going to replicate and extend Penney (2016). All the
+raw data that you will need for this activity is available from Wikipedia
+(https://dumps.wikimedia.org/other/pagecounts-raw/). Or you can get it from
+the R-package wikipediatrend (Meissner and Team 2016). When you write
+up your responses, please note which data source you used. (Note that this
+same activity also appears in chapter 6.) This activity will give you practice in
+data wrangling and thinking about discovering natural experiments in big data
+sources. It will also get you up and running with a potentially interesting data
+source for future projects.
+
+#A
+a) Read Penney (2016) and replicate his figure 2, which shows the page views
+for “Terrorism”-related pages before and after the Snowden revelations.
+Interpret the findings.
+
+
+Install wikipediatrend
+```{r, eval=FALSE}
+devtools::install_github("petermeissner/wikipediatrend")
+install.packages("tidyverse")
+library("wikipediatrend")
+library("tidyverse")
+```
+
+
+Gather the pages
+```{r}
+trend_data = 
+  wp_trend(
+    page = c("Al_Qaeda","Terrorism", 
+             "Terror", "Attack", 
+             "Iraq", "Afghanistan",
+             "Iran", "Pakistan",
+             "Agro", "Environmental_Terrorism",
+             "Eco-Terrorism", "Conventional_Weapon",
+             "Weapons_Grade", "Dirty_Bomb",
+             "Nuclear_Enrichment", "Nuclear",
+             "Chemical_Weapon", "Biological_Weapon",
+             "Ammonium_Nitrate", "Improvised Explosive_Device",
+             "Abu_Sayyaf", "Hamas",
+             "FARC", "Irish_Republican_Army",
+             "Euskadi_ta_Askatasuna", "Hezbollah",
+             "Tamil_Tigers", "PLO",
+             "Palestine_Liberation_Front",
+             "Car_bomb", "Jihad",
+             "Taliban", "Suicide_bomber",
+             "Suicide_attack", "AL-Qaeda_in_the_Arabian_Peninsula",
+             "Al-Qaeda_in_the_Islamic_Maghreb", "Tehrik-i-Taliban_Pakistan",
+             "Yemen", "Pirates",
+             "Extremism", "Somalia",
+             "Nigeria", "Political_radicalism",
+             "Al-Shabaab", "Nationalism", "Recruitment",
+             "Fundamentalism", "Islamist"), 
+    from = "2012-01-01",
+    to   = "2014-08-31"
+  )
+trend_df = data.frame(trend_data)
+
+trend_df
+```
+
+
+Get the total views for each month
+```{r}
+totalmonth = aggregate(trend_df["views"], by = trend_df["date"], sum) %>%
+  mutate(year = lubridate::year(date), 
+                month = lubridate::month(date), 
+                day = lubridate::day(date)) %>% 
+  group_by(year, month) %>%
+  summarise(Total_Views = sum(views)) %>%
+  add_column(Time_Months = 1:32) %>%
+  data.frame()
+
+totalmonth
+
+terrorpre_june2013 = filter(totalmonth, Time_Months >= 1 & Time_Months <= 17)
+terrorafter_june2013 = filter(totalmonth, Time_Months >= 18 & Time_Months <= 32)
+
+terrorpre_june2013
+terrorafter_june2013
+```
+
+
+Make the Figure 2 visualization
+```{r}
+visuals1 = rbind(terrorpre_june2013, terrorafter_june2013)
+visuals1$range = c(rep("terrorpre_june2013", 17),rep("terrorafter_june2013", 15))
+visuals1plot = ggplot(visuals1, aes(Time_Months, Total_Views, group = range, col = range)) + 
+  geom_point() + geom_smooth(method = "lm") +
+  geom_vline(xintercept = 17.5) + 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+  scale_x_continuous(breaks = seq(0, 32, 2)) +
+  ggtitle("Figure 2") +
+  theme(legend.position="bottom")
+   
+
+visuals1plot
+```
+Just like in the article, there was a sharp drop after the news of online surveillance and it was a steep drop that lasted after the new intial news. 
+
+
+#B
+b) Next, replicate figure 4A, which compares the study group (“Terrorism”-
+related articles) with a comparator group using keywords categorized
+under “DHS & Other Agencies” from the DHS list (see appendix table 10
+and footnote 139). Interpret the findings.
+
+
+Get the "DHS & Other Agencies" list keywords
+```{r}
+dhstrend_data = 
+  wp_trend(
+    page = c("United_States_Department_of_Homeland_Security", "Federal_Emergency_Management_Agency",
+            "Coast_guard", "Customs_and_Border_Protection",
+            "Border_Patrol", "Secret_Service",
+            "Bureau_of Land_Management", "Homeland_defense",
+            "Espionage", "Task_Force_88_(anti-terrorist_unit)",
+            "Central_Intelligence_Agency", "Fusion_center",
+            "Secure_Border_Initiative", "Federal_Bureau_of_Investigation",
+            "Alcohol_and_Tobacco_Tax_and_Trade_Bureau",
+            "United_States_Citizenship_and_Immigration_Services", "Federal_Air_Marshal_Service",
+            "Transportation_Security_Administration", "Air_marshal",
+            "Federal_Aviation_Administration", "National_Guard",
+            "Emergency_management", "U.S._Immigration_and_Customs_Enforcement",
+            "United_Nations"),
+    from = "2012-01-01",
+    to   = "2014-08-31")
+dhs_df = data.frame(dhstrend_data)
+
+dhs_df
+```
+
+
+Get the totals for each month for the DHS keywords
+```{r}
+totalmonthdhs = aggregate(dhs_df["views"], by = dhs_df["date"], sum) %>%
+  mutate(year = lubridate::year(date), 
+                month = lubridate::month(date), 
+                day = lubridate::day(date)) %>% 
+  group_by(year, month) %>%
+  summarise(Total_Views = sum(views)) %>%
+  add_column(Time_Months = 1:32) %>%
+  data.frame()
+
+totalmonthdhs
+
+dhspre_june2013 = filter(totalmonthdhs, Time_Months >= 1 & Time_Months <= 17)
+dhsafter_june2013 = filter(totalmonthdhs, Time_Months >= 18 & Time_Months <= 32)
+
+dhspre_june2013
+dhsafter_june2013
+```
+
+
+Make the Figure 4A visualization
+First lets make the DHS visualization to check it out then afterwards join Figure2 with the Figure 4A visualization
+```{r}
+visuals2 = rbind(dhspre_june2013, dhsafter_june2013)
+visuals2$range = c(rep("dhspre_june2013", 17),rep("dhsafter_june2013", 15))
+visuals2plot = ggplot(visuals2, aes(Time_Months, Total_Views, group = range, col = range)) + 
+   geom_point() + 
+   geom_smooth(method = "lm") + 
+   geom_vline(xintercept = 17.5) + 
+   scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) + 
+   scale_x_continuous(breaks = seq(0, 32, 2))
+
+visuals2plot
+```
+
+
+Join the terrorism list with the DHS list to create Figure 4A
+```{r}
+figure4a = full_join(visuals1, visuals2)
+  
+ggplot(figure4a, aes(x = Time_Months, y = Total_Views, colour = range)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = 17.5) + 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) + 
+  scale_x_continuous(breaks = seq(0, 32, 2)) +
+  ggtitle("Figure 4A") +
+  theme(legend.position = "bottom")
+```
+Comparing the two different groups, there was not as much of a decrease in the DHS group versus the terrorism group. There is small decreasing trend after June 2013 for DHS but not as larger nor significant from the articles findings. The most likely cause of this is that the words in the terrorism group are much more likely to raise concern versus the DHS group which had infomation about structures. In the DHS list, looking up the articles for bridges wont be as alarming as a suicide vest. 
+
+#C
+c) In part (b) you compared the study group with one comparator group.
+Penney also compared with two other comparator groups: “Infrastructure
+Security”–related articles (appendix table 11) and popular Wikipedia pages
+(appendix table 12). Come up with an alternative comparator group, and
+test whether the findings from part (b) are sensitive to your choice of
+comparator group. Which choice makes most sense? Why?
+
+
+Make another comparator group (literature)
+```{r}
+literaturetrend_data = 
+  wp_trend(
+    page = c("Nineteen_Eighty-Four", "Animal_Farm",
+             "Big_Brother", "Totalitarianism",
+             "Authoritarianism", "The_Hunger_Games",
+             "Political_Fiction","Dystopia", 
+             "Farenheit_451", "George_Orwell",
+             "A_Scanner_Darkly", "The_Handmaid's_Tale",
+             "Feed_(Anderson novel)", "The_Minority_Report",
+             "V_for_Vendetta", "Tyranny",
+             "The_Giver","Brave_New_World",
+             "Divergent_(novel)", "The_Maze_Runner",
+             "A_Clockwork_Orange_(novel)", "The Road" ),
+    from = "2012-01-01",
+    to   = "2014-08-31")
+literaturetrend_df = data.frame(literaturetrend_data)
+
+totalmonthliterature = aggregate(literaturetrend_df["views"], by = literaturetrend_df["date"], sum) %>%
+  mutate(year = lubridate::year(date), 
+                month = lubridate::month(date), 
+                day = lubridate::day(date)) %>% 
+  group_by(year, month) %>%
+  summarise(Total_Views = sum(views)) %>%
+  add_column(Time_Months = 1:32) %>%
+  data.frame()
+
+totalmonthliterature
+
+literaturepre_june2013 = filter(totalmonthliterature, Time_Months >= 1 & Time_Months <= 17)
+literatureafter_june2013 = filter(totalmonthliterature, Time_Months >= 18 & Time_Months <= 32)
+
+literaturepre_june2013
+literatureafter_june2013
+```
+
+
+Make the visual for literatures
+```{r}
+visuals3 = rbind(literaturepre_june2013, literatureafter_june2013)
+visuals3$range = c(rep("literaturepre_june2013", 17),rep("literatureafter_june2013", 15))
+visuals3plot = ggplot(visuals3, aes(Time_Months, Total_Views, group = range, col = range)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = 17.5) + 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) + 
+  scale_x_continuous(breaks = seq(0, 32, 2)) + 
+  ggtitle("Comparator Group") +
+  theme(legend.position="bottom")
+
+visuals3plot
+```
+
+
+Join the comparator group with the main group
+```{r}
+figurec = full_join(visuals1, visuals3)
+  
+ggplot(figurec, aes(x = Time_Months, y = Total_Views, colour = range)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = 17.5) + 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) + 
+  scale_x_continuous(breaks = seq(0, 32, 2)) +
+  ggtitle("Figure C") +
+  theme(legend.position = "bottom")
+```
+Just like the DHS group, there was no significant jump or change compared to the terrorism group. The group I used here was dystopian or totalitarian novels and words associated with them. Overall, for the literature group, the trend was not affected and continued to have a decreasing trend. Out of curiosity, I made another group using George Orwell and saw that there was a jump after the revelation, the words I used were : Nineteen Eighty-Four, Animal Farm, George Orwell, and Big Brother. The first point after the June 2013 had a huge jump by 80,000 views and afterwards there was a steep downtrend. This trend is most likely with Orwell's famous novel 1984 being a key piece of literature about governments influence and authority over people and it being used as an example in media when talking about government surveillance.
+```{r}
+go_data = 
+  wp_trend(
+    page = c("Nineteen_Eighty-Four", "Animal_Farm", "George_Orwell", "Big_Brother"),
+    from = "2012-01-01",
+    to   = "2014-08-31")
+go_df = data.frame(go_data)
+
+totalmonthgo = aggregate(go_df["views"], by = go_df["date"], sum) %>%
+  mutate(year = lubridate::year(date), 
+                month = lubridate::month(date), 
+                day = lubridate::day(date)) %>% 
+  group_by(year, month) %>%
+  summarise(Total_Views = sum(views)) %>%
+  add_column(Time_Months = 1:32) %>%
+  data.frame()
+
+gopre_june2013 = filter(totalmonthgo, Time_Months >= 1 & Time_Months <= 17)
+goafter_june2013 = filter(totalmonthgo, Time_Months >= 18 & Time_Months <= 32)
+
+visualsgo = rbind(gopre_june2013, goafter_june2013)
+visualsgo$range = c(rep("gopre_june2013", 17),rep("goafter_june2013", 15))
+visualsgoplot = ggplot(visualsgo, aes(Time_Months, Total_Views, group = range, col = range)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = 17.5) + 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) + 
+  scale_x_continuous(breaks = seq(0, 32, 2)) + 
+  ggtitle("Comparator Group") +
+  theme(legend.position="bottom")
+
+visualsgoplot
+```
